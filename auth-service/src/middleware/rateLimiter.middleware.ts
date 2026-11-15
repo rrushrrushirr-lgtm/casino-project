@@ -1,28 +1,22 @@
 import rateLimit from 'express-rate-limit'
-import { RedisStore } from 'rate-limit-redis'
-import { redis } from '../lib/redis.js'
 
-// Redis-backed limiter so limits hold across multiple instances.
-function makeLimiter(opts: { windowMs: number; max: number; prefix: string }) {
+// Single-instance in-memory rate limiting for the free demo deployment.
+// No Redis service is required. Limits reset when the service restarts.
+function makeLimiter(opts: { windowMs: number; max: number }) {
   return rateLimit({
     windowMs: opts.windowMs,
-    max: opts.max,
+    limit: opts.max,
     standardHeaders: true,
     legacyHeaders: false,
-    store: new RedisStore({
-      // ioredis call signature
-      sendCommand: (...args: string[]) => redis.call(...(args as [string, ...string[]])) as Promise<any>,
-      prefix: `rl:${opts.prefix}:`,
-    }),
     message: { success: false, error: { code: 'RATE_LIMITED', message: 'Too many requests' } },
   })
 }
 
 // Strict limiter for auth endpoints (login/register/refresh) — per IP.
-export const authLimiter = makeLimiter({ windowMs: 15 * 60 * 1000, max: 30, prefix: 'auth' })
+export const authLimiter = makeLimiter({ windowMs: 15 * 60 * 1000, max: 30 })
 
 // Very strict for OTP requests.
-export const otpLimiter = makeLimiter({ windowMs: 10 * 60 * 1000, max: 5, prefix: 'otp' })
+export const otpLimiter = makeLimiter({ windowMs: 10 * 60 * 1000, max: 5 })
 
 // General API limiter.
-export const apiLimiter = makeLimiter({ windowMs: 60 * 1000, max: 120, prefix: 'api' })
+export const apiLimiter = makeLimiter({ windowMs: 60 * 1000, max: 120 })
